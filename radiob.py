@@ -26,7 +26,7 @@ from decomp_dcm import *
 
 # vol = []
 
-
+import tkinter.ttk as ttk
 import scipy.misc
 class GUI():
     def __init__(self,file_path = '/data/gabriel/TAVR/TAVR_Sample_Study' ):
@@ -56,13 +56,23 @@ class GUI():
         self.welcome_logo = itk.PhotoImage(PIL.Image.open('welcome.png'))
         self.label  = tk.Label(master=self.root,image=itk.PhotoImage(PIL.Image.open('welcome.png')))    
         self.label.pack(side='left')
-
+        
+        
+        
         self.b1 = tk.Radiobutton(master=self.root,text='Next',indicatoron=False,variable=self.next_var,command=self.next_b)
         self.b2 = tk.Radiobutton(master=self.root,text='Prev',indicatoron=False,variable=self.prev_var,command=self.prev_b)
         self.b1.pack()
         self.b2.pack()
+        self.header = ['Volume Index','Series No.','Acquisition No.','Phase %','No. of Images','Manufacturer']
+        
+        self.tree = ttk.Treeview(master=self.root,columns = self.header,show='headings')
+        self.tree.pack()
         
         
+        for idx,h in enumerate(self.header):
+            self.tree.heading(self.header[idx],text=self.header[idx],anchor=tk.CENTER)
+            self.tree.column(str(idx),stretch=tk.YES)
+            
         all_keys =list( self.group_df.groups.keys())
         self.w = tk.Message(master=self.root,text = "")
         for i,j in enumerate(all_keys):
@@ -80,6 +90,8 @@ class GUI():
             #num_images.append(len(vol[-1]))
             button_text = (ser_num,acq_num,ph_num,num_images,man_name)
             
+            
+            
             for vol_id in range(0,num_vols):
                 #self.v.set(0)
                 #print(man_name[0])
@@ -89,13 +101,16 @@ class GUI():
 
                 #print(button_text1)
                 
-                tk.Radiobutton(master=self.root,\
-                               text=button_text1
-                               ,padx=20,\
-                               variable=self.v,\
-                               command=self.load_volume,\
-                               value=i,\
-                               indicatoron=False).pack(anchor=tk.W)
+                self.tree.insert("","end",values = button_text1)
+                self.tree.bind("<Double-1>",self.load_volume)
+                
+#                 tk.Radiobutton(master=self.root,\
+#                                text=button_text1
+#                                ,padx=20,\
+#                                variable=self.v,\
+#                                command=self.load_volume,\
+#                                value=i,\
+#                                indicatoron=False).pack(anchor=tk.W)
 
                 self.val_to_tuple[vol_id1]=button_text1
                 
@@ -113,12 +128,12 @@ class GUI():
     def annotate_func(self):
         print("Not implemented")
         
-    def load_volume(self):
-        
+    def load_volume(self,event):
+        ### for treeview
         
         
         self.counter=-1
-        req_tuple = self.val_to_tuple[self.v.get()]
+        req_tuple = self.val_to_tuple[int(self.tree.selection()[0][1:],16)-1]
         self.vol = return_volume(self.df,self.group_df,req_tuple[1],req_tuple[2],req_tuple[3],req_tuple[5])
         #print(len(vol))
         
@@ -128,6 +143,9 @@ class GUI():
         
         self.w.configure(text = "viewing  Vol Idx %s, Series %s, Acq Num %s"%(req_tuple[1],req_tuple[2],req_tuple[3]))
         self.w.pack()
+        
+        
+        
     def next_b(self):
         #self.w.destroy()
         
@@ -152,6 +170,9 @@ class GUI():
     def prev_b(self):
         self.prev_var.set(1)
         self.counter-=1
+        
+        if (self.counter < -len(self.vol)):
+            self.counter = -1
         
         np_img = decomp(self.vol[self.counter][0])
         
