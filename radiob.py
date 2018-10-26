@@ -278,7 +278,7 @@ class GUI():
 # #                     writer.write(f, z2list)
 #                 scipy.misc.imsave('volume'+str(self.vol_name)+'/Images/Image_'+str(i)+'.png',img)
             
-            with open('volume'+str(self.vol_name)+'/volume.xml','w') as f:
+            with open(str(self.vol_name)+'/volume.xml','w') as f:
                 f.write('<volume>\n')
                 f.write('<Spacing><x>'+str(spacing[2])+'</x><y>'+str(spacing[1])+'</y><z>'+str(spacing[0])+'</z></Spacing>')
                 f.write('\n<Size><x>'+str(num_z)+'</x><y>'+str(num_cols)+'</y><z>'+str(num_rows)+'</z></Size>')
@@ -289,7 +289,7 @@ class GUI():
             #print('anno_new/text.exe --path volume'+str(self.vol_name))
             #print(self.vol_name)
             #print(type(self.vol_name))
-            subprocess.run('anno_new/test.exe --path volume'+str(self.vol_name))
+            subprocess.run('anno_new/test.exe --path '+str(self.vol_name))
         
         ##print("Not implemented")
         
@@ -350,14 +350,14 @@ class GUI():
     def load_each_volume(self,event):
         
         vol_idx = (int(self.tree_vol.selection()[0][1:],16)-1) % len(self.study)
-        print(int(self.tree_vol.selection()[0][1:],16)-1)
-        print(vol_idx)
+        #print(int(self.tree_vol.selection()[0][1:],16)-1)
+        #print(vol_idx)
         self.vol_name = 'study_'+str(self.study_id)+'_vol_'+str(vol_idx)
         self.vol = self.study[vol_idx]
         
         self.next_b()
         
-        print('aa')
+        #print('aa')
     def next_b(self):
         #self.w.destroy()
         
