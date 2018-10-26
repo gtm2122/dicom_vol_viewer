@@ -31,9 +31,27 @@ import scipy.misc
 import subprocess
 import png
 from PIL import Image
+
+from tkinter import Entry,StringVar
+class entry_gui(object):
+    def __init__(self):
+        self.master = tk.Tk()
+        self.content = StringVar()
+        self.entry_box = Entry(self.master,width=50,textvariable=self.content)
+        self.entry_box.pack(side='left')
+        self.enter_button = tk.Button(self.master, text="Enter", width=10, command=self.callback).pack(side='right')
+        self.gui_class = GUI
+        self.master.mainloop()
+    def callback(self):
+        print(self.content.get())
+        self.master.destroy()
+        a = self.gui_class(self.content.get())
+
 #import pypng as png
 class GUI():
     def __init__(self,file_path = '/data/gabriel/TAVR/TAVR_Sample_Study' ):
+        
+        
         self.study = []
         self.file_path = file_path
         self.vol = []
@@ -47,6 +65,7 @@ class GUI():
         self.vol_name = None
         
         self.root = tk.Tk()
+        self.new_location = tk.Button(master=self.root,text='Enter new path',command=self.load_text_box).pack()
         
         self.v = tk.IntVar()
         self.v.set(0)
@@ -60,7 +79,11 @@ class GUI():
 
         # get all vols:
         #self.welcome_logo = itk.PhotoImage(PIL.Image.open('welcome.png'))
-        self.label  = tk.Label(master=self.root,image=itk.PhotoImage(PIL.Image.open('welcome.png')))    
+        
+        
+        
+        self.label  = tk.Label(master=self.root,image=itk.PhotoImage(PIL.Image.open('welcome.png')))
+        self.label.image = itk.PhotoImage(PIL.Image.open('welcome.png'))
         self.label.pack(side='bottom')
         
         
@@ -397,7 +420,12 @@ class GUI():
         self.label.image=photo
         
         self.label.pack()
-
+    
+    def load_text_box(self):
+        self.root.destroy()
+        
+        bb = entry_gui()
+        
         
 
 if __name__ =="__main__":
