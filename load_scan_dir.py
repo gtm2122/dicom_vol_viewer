@@ -16,9 +16,25 @@ def read_phase(slice):
             return slice[(0x45,0x1033)].value.decode('utf-8').replace(' ','')
     return str(-1)
 
+
+def is_dicom(path):
+    try:
+        pydicom.dcmread(path,stop_before_pixels=True,force=True)
+        return True
+    except:
+        return False
+
+def load_all_dcm(path):
+    all_dcms = []
+    for i,j,k in os.walk(path):
+        
+        if isinstance(k,list):
+            all_dcms+=[(pydicom.dcmread(i+'/'+p,stop_before_pixels=True,force=True),i+'/'+p) for p in k if 'DICOMDIR' not in p and is_dicom(i+'/'+p)]
+    return all_dcms
+    
 def group_scans_df(path,save=False):
     path=clean_name(path)
-    slices = [(pydicom.read_file(path+'/'+s,stop_before_pixels=True),path+'/'+s) for s in os.listdir(path)]
+    slices = load_all_dcm(path)
     #print(slices[0][1])
     dic = {'Name_of_file':[i[1] for i in slices]\
            ,'SeriesNumber':[i[0].SeriesNumber if i[0].__contains__('SeriesNumber') else -1 for i in slices],\
@@ -26,7 +42,9 @@ def group_scans_df(path,save=False):
            ,'Manufacturer':[i[0][(0x8,0x70)].repval if i[0].__contains__((0x8,0x70)) else -1 for i in slices]\
            ,'Phase':[read_phase(i[0]) for i in slices]\
            ,'InstanceNumber':[i[0].InstanceNumber if i[0].__contains__('InstanceNumber') else -1 for i in slices]\
-           ,'ImagePositionPatient':[i[0].ImagePositionPatient[2] if i[0].__contains__('ImagePositionPatient') else -1 for i in slices]}
+           ,'ImagePositionPatient':[i[0].ImagePositionPatient[2] if i[0].__contains__('ImagePositionPatient') else -1 for i in slices],
+           'SeriesDescription':[i[0].SeriesDescription if i[0].__contains__('SeriesDescription') else -1 for i in slices],\
+          'Modality':[i[0].Modality if i[0].__contains__('Modality') else -1 for i in slices]}
     
     df_dic = pd.DataFrame(dic)
     
@@ -34,6 +52,10 @@ def group_scans_df(path,save=False):
         df_dic.to_csv('./'+path.split('/')[-1]+'.csv')
 
     return df_dic
+
+def return_grouped_s(df):
+    return df.groupby(['Modality','SeriesNumber'])
+
 
 def return_grouped(df):
     return df.groupby(['AcquisitionNumber','SeriesNumber','Phase','Manufacturer'])
@@ -44,6 +66,7 @@ def return_volume(orig_df , g,acq_num,ser_num,phase_num,man_name="'GE MEDICAL SY
     cc=0
     total_count = 0
     phase_num = str(phase_num)
+    #print(g.keys())
     grouped_subset = g.groups[(acq_num, ser_num, str(phase_num), man_name)] # gives the indices of the grouping
     
     group = orig_df.loc[grouped_subset]
