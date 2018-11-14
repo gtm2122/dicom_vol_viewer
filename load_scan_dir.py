@@ -2,12 +2,57 @@ import os
 import pydicom
 import numpy as np
 import pandas as pd
+from PIL import Image
+import scipy.misc
 
-def clean_name(n):
-    if n[-1] =='/':
-        return clean_name(n[:-1])
-    else:
-        return n
+# def clean_name(n):
+#     if n[-1] =='/':
+#         return clean_name(n[:-1])
+#     else:
+#         return n
+def hu_conv(args):
+    slices = args[0]
+    img = args[1]
+    idx = args[2]
+
+    intercept =args[3]
+    slope = args[4]#slices[slice_number].RescaleSlope
+    padding =  args[5]#slices[slice_number].PixelPaddingValue
+
+    #img = image[slice_number]
+    img[img==padding] = 0        
+    # Shift 2 bits based difference 16 -> 14-bit as returned by jpeg2k_bit_depth
+    #padded_pixels = np.where( img & (1 << 14))
+    #image[slice_number] = np.right_shift( image[slice_number], 2)
+
+    if slope != 1:
+        img = slope * img.astype(np.float64)
+        img = img.astype(np.int16)
+
+    img += np.int16(intercept)
+
+    return (idx,img.astype(np.int16))
+
+def save_im(args):
+    arr = args[0]
+    save_path = args[1]
+    vol_name = args[2]
+    i = args[3]
+    
+    save_path = args
+    if arr.shape[0]>512:
+        arr = scipy.misc.imresize(arr,(512,512))
+    #                 print(arr.min())
+    #                 print(arr.max())
+    #np.save('image',arr)
+    array_buffer = arr.tobytes()
+    img = Image.new("I", arr.T.shape)
+    img.frombytes(array_buffer, 'raw', "I;16")
+    print(save_path)
+    print(str(vol_name))
+    print(str(i))
+    img.save(save_path+'/'+str(vol_name)+'/images/image - '+str(i)+'.png')
+
 
 def read_phase(slice):
     if slice.__contains__((0x8,0x70)):
@@ -28,12 +73,12 @@ def load_all_dcm(path):
     all_dcms = []
     for i,j,k in os.walk(path):
         
-        if isinstance(k,list):
+        if isinstance(k,list) and is_dicom(i+'/'+k[0]) and 'DICOMDIR' not in k[0]:
             all_dcms+=[(pydicom.dcmread(i+'/'+p,stop_before_pixels=True,force=True),i+'/'+p) for p in k if 'DICOMDIR' not in p and is_dicom(i+'/'+p)]
     return all_dcms
     
 def group_scans_df(path,save=False):
-    path=clean_name(path)
+    #path=clean_name(path)
     slices = load_all_dcm(path)
     #print(slices[0][1])
     dic = {'Name_of_file':[i[1] for i in slices]\
