@@ -137,7 +137,7 @@ class GUI():
 #         #self.tree_vol.pack(side='left')
         
         self.label  = tk.Label(master=self.frame2_2_2,image=itk.PhotoImage(PIL.Image.open('welcome.png')))
-        self.label.image = itk.PhotoImage(PIL.Image.open('welcome.png'))
+        #self.label.image = itk.PhotoImage(PIL.Image.open('welcome.png'))
 #         #self.label.grid(row=1,column=2)
         self.label.pack(side='bottom',fill='both',expand=True)
         
@@ -243,6 +243,7 @@ class GUI():
         slices = slices
         #image = [s.pixel_array.astype(np.int16) for s in slices]
         image = np.stack([s.pixel_array for s in slices])
+        image = image.astype(np.int16)
         # Convert to int16 (from sometimes int16), 
         # should be possible as values should always be low enough (<32k)
         #image = image.astype(np.int16)
@@ -285,10 +286,12 @@ class GUI():
 
             intercept = slices[slice_number].RescaleIntercept
             slope = slices[slice_number].RescaleSlope
-            padding =  slices[slice_number].PixelPaddingValue
-
             img = image[slice_number]
-            img[img==padding] = 0  
+            if slices[slice_number].__contains__('PixelPaddingValue'):
+                padding =  slices[slice_number].PixelPaddingValue
+                img[img==padding] = 0  
+            
+            
             image[slice_number] = img
             # Shift 2 bits based difference 16 -> 14-bit as returned by jpeg2k_bit_depth
             #padded_pixels = np.where( img & (1 << 14))
@@ -373,7 +376,7 @@ class GUI():
 #         image[3*len(image)//4:] = image4
         #res.wait()
         #print(res.get())
-        return np.array(np.stack(image), dtype=np.int16)
+        return np.array(image,dtype = np.int16)
     
     
     
@@ -403,6 +406,8 @@ class GUI():
                 t = time.time()
                 images = self.get_pixels_hu(slices)
                 print('get hu ',time.time()-t)
+                print(images.max())
+                print(-1 + 2**16 )
                 images = images + 1024
                 
                 t = time.time()
@@ -430,23 +435,23 @@ class GUI():
                 t = time.time()
                 save_path = self.save_path
                 vol_name = self.vol_name
-                def cb_save_im():
-                    nonlocal decomp_img
-                    for i in range(0,len(decomp_img)):
-                        arr = decomp_img[i,:,:]
-                        if arr.shape[0]>512:
-                            arr = scipy.misc.imresize(arr,(512,512))
-        #                 print(arr.min())
-        #                 print(arr.max())
-                        #np.save('image',arr)
-                        array_buffer = arr.tobytes()
-                        img = Image.new("I", arr.T.shape)
-                        img.frombytes(array_buffer, 'raw', "I;16")
-                        img.save(self.save_path+'/'+self.study_name+'/'+str(vol_name)+'/images/image - '+str(i)+'.png')
-                    print('saving images ',time.time()-t)
-                q = threading.Thread(target = cb_save_im)
-                q.start()
-                q.join()
+#                 def cb_save_im():
+#                     nonlocal decomp_img
+                for i in range(0,len(decomp_img)):
+                    arr = decomp_img[i,:,:]
+                    if arr.shape[0]>512:
+                        arr = scipy.misc.imresize(arr,(512,512))
+    #                 print(arr.min())
+    #                 print(arr.max())
+                    #np.save('image',arr)
+                    array_buffer = arr.tobytes()
+                    img = Image.new("I", arr.T.shape)
+                    img.frombytes(array_buffer, 'raw', "I;16")
+                    img.save(self.save_path+'/'+self.study_name+'/'+str(vol_name)+'/images/image - '+str(i)+'.png')
+                print('saving images ',time.time()-t)
+#                 q = threading.Thread(target = cb_save_im)
+#                 q.start()
+#                 q.join()
                 t = time.time()
                 
                 with open(self.save_path+'/'+self.study_name+'/'+str(self.vol_name)+'/volume.xml','w') as f:
