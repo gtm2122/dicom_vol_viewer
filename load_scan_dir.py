@@ -73,7 +73,7 @@ def load_all_dcm(path):
     all_dcms = []
     for i,j,k in os.walk(path):
         
-        if isinstance(k,list) and is_dicom(i+'/'+k[0]) and 'DICOMDIR' not in k[0]:
+        if isinstance(k,list) and len(k)>0 and is_dicom(i+'/'+k[0]) and 'DICOMDIR' not in k[0]:
             all_dcms+=[(pydicom.dcmread(i+'/'+p,stop_before_pixels=True,force=True),i+'/'+p) for p in k if 'DICOMDIR' not in p and is_dicom(i+'/'+p)]
     return all_dcms
     
