@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 import scipy.misc
-
+#from radiob import global_df
 # def clean_name(n):
 #     if n[-1] =='/':
 #         return clean_name(n[:-1])
@@ -59,6 +59,12 @@ def read_phase(slice):
         maufacture = slice[(0x8,0x70)].repval
         if(maufacture == "'GE MEDICAL SYSTEMS'" and slice.__contains__((0x45,0x1033))):
             return slice[(0x45,0x1033)].value.decode('utf-8').replace(' ','')
+        elif slice.__contains__((0x20,0x9241)):
+            if isinstance(slice[(0x20,0x9241)].value,float):
+                return str(slice[(0x20,0x9241)].value)
+            else:
+            #print(slice[(0x20,0x9241)].value)
+                return slice[(0x20,0x9241)].value.decode('utf-8').replace(' ','')
     return str(-1)
 
 
@@ -77,7 +83,7 @@ def load_all_dcm(path):
             all_dcms+=[(pydicom.dcmread(i+'/'+p,stop_before_pixels=True,force=True),i+'/'+p) for p in k if 'DICOMDIR' not in p and is_dicom(i+'/'+p)]
     return all_dcms
     
-def group_scans_df(path,save=False):
+def group_scans_df(global_var,path,save_cache_path,save=False):
     #path=clean_name(path)
     slices = load_all_dcm(path)
     #print(slices[0][1])
@@ -95,13 +101,36 @@ def group_scans_df(path,save=False):
     
     if save:
         df_dic.to_csv('./'+path.split('/')[-1]+'.csv')
+    #global global_var
+    #global_var.put(df_dic)
+    #print(global_var)
+    #print('group_scans_df')
+    #print(global_var)
+    #print(save_cache_path)
+    pickle.dump(df_dic,open(save_cache_path,'wb'))
+            
+    #return df_dic
 
-    return df_dic
-
-def return_grouped_s(df):
-    return df.groupby(['Modality','SeriesNumber'])
-
-
+def return_grouped_s(global_df,pickle_file):
+    #global global_var
+    #global global_df
+    #global_var = global_df
+    df = pickle_file
+    df_new = df.groupby(['Modality','SeriesNumber'])
+    pickle.dump(df_new,open(cache_path+'.group.pkl','wb'))
+    global_df.put(df_new)
+def load_series_group(global_df,path,cache_path):
+    #global global_df
+    #var = global_df
+    if not (os.path.isfile(cache_path)) :
+        group_scans_df(global_df,path,cache_path)
+        return_grouped_s(var)
+        
+    else:
+        pickle_obj = pickle.load(open(cache_path,'rb'))
+        return_grouped_s(global_df,pickle_obj)
+        
+        
 def return_grouped(df):
     return df.groupby(['AcquisitionNumber','SeriesNumber','Phase','Manufacturer'])
 
@@ -232,5 +261,3 @@ def return_volume(orig_df , g,acq_num,ser_num,phase_num,man_name="'GE MEDICAL SY
     #return vol_count
 
 
-
-    

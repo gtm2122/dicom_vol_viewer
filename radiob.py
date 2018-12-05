@@ -2,10 +2,12 @@ import tkinter as tk
 import numpy as np
 import os
 import pydicom
-import load_scan_dir as lsd
-from load_scan_dir import *
+#import load_scan_dir as lsd
+import pandas as pd
+from load_scan_dir import return_volume,load_all_dcm,read_phase
 from PIL import ImageTk as itk
 import PIL
+from functools import partial
 import pickle
 import scipy.misc
 from decomp_dcm import *
@@ -13,7 +15,7 @@ from decomp_dcm import *
 # root = tk.Tk()
 # next_var = tk.IntVar()
 # prev_var = tk.IntVar()
-
+import time
 # next_var.set(0)
 # next_var.set(0)
 import time
@@ -28,11 +30,94 @@ import scipy.misc
 import subprocess
 #import png
 from PIL import Image
-
+from multiprocessing import Queue,Process
+from queue import Empty
+from decimal import Decimal,getcontext
+from tkinter.ttk import Progressbar
+#import matplotlib.pyplot as plt
 #from tkinter import Entry,StringVar
+global_df = Queue()
+def group_scans_df(global_df,path,save_cache_path,save=False):
+    #path=clean_name(path)
+    print('HEEERE22')
+    
+    if not os.path.isfile(save_cache_path):
+    
+        slices = load_all_dcm(path)
+        #print(slices[0][1])
+        dic = {'Name_of_file':[i[1] for i in slices]\
+               ,'SeriesNumber':[i[0].SeriesNumber if i[0].__contains__('SeriesNumber') else -1 for i in slices],\
+               'AcquisitionNumber':[i[0].AcquisitionNumber if i[0].__contains__('AcquisitionNumber') else -1 for i in slices]\
+               ,'Manufacturer':[i[0][(0x8,0x70)].repval if i[0].__contains__((0x8,0x70)) else -1 for i in slices]\
+               ,'Phase':[read_phase(i[0]) for i in slices]\
+               ,'InstanceNumber':[i[0].InstanceNumber if i[0].__contains__('InstanceNumber') else -1 for i in slices]\
+               ,'ImagePositionPatient':[i[0].ImagePositionPatient[2] if i[0].__contains__('ImagePositionPatient') else -1 for i in slices],
+               'SeriesDescription':[i[0].SeriesDescription if i[0].__contains__('SeriesDescription') else -1 for i in slices],\
+              'Modality':[i[0].Modality if i[0].__contains__('Modality') else -1 for i in slices]}
+
+        df_dic = pd.DataFrame(dic)
+        #global global_df
+        if save:
+            df_dic.to_csv('./'+path.split('/')[-1]+'.csv')
+        #global global_var
+        #global_var.put(df_dic)
+        #print(global_var)
+        #print('group_scans_df')
+        #print(global_var)
+        #print(save_cache_path)
+        #global_df.put(df_dic)
+        
+        pickle.dump(df_dic,open(save_cache_path,'wb'))
+    else:
+        print('here')
+        bb = pickle.load(open(save_cache_path,'rb'))
+    return df_dic
+        #     for p in global_df:
+#         print(p)
+    #return df_dic
+# for p in global_df:
+#     print(p)
+
+
+
+def return_grouped_s(global_df,cache_path,df_obj):
+    #global global_var
+    #global global_df
+    #global_var = global_df
+    print('HEEERE11')
+    #df = pickle_file
+    #global global_df
+    df = df_obj
+    df_new = df.groupby(['Modality','SeriesNumber'])
+    #global global_df
+    
+    if not os.path.isfile(cache_path+'.group.pkl'):
+        pickle.dump(df_new,open(cache_path+'.group.pkl','wb'))
+    print('PRININITN')
+    print(df_new)
+    global_df.put(df_new)
+    #print(df_new)
+    #return
+def load_series_group(global_df,path,cache_path):
+    #global global_df
+    #var = global_df
+    
+    #global global_df
+    print('HEEERE')
+    if not (os.path.isfile(cache_path)) :
+        df_dic = group_scans_df(global_df,path,cache_path)
+        return_grouped_s(global_df,cache_path,df_dic)
+        
+    else:
+        print(cache_path)
+        pickle_obj = pickle.load(open(cache_path,'rb'))
+        return_grouped_s(global_df,cache_path,pickle_obj)
+           
+    #return
+
 
 class GUI():
-    def __init__(self,file_path = '/data/gabriel/TAVR/TAVR_MAIN/' ):
+    def __init__(self,tk_obj,file_path = '../TAVR_MAIN' ):
         
         self.file_path = file_path ### ROOT PATH!
         
@@ -51,7 +136,7 @@ class GUI():
         self.counter = -1
         self.study_to_text = {} ### lookup table linking study number with "button text"
         #self.df  =
-        
+        global global_df
         self.new_df={}
         self.new_group_df = {}
 
@@ -65,7 +150,7 @@ class GUI():
         
         self.vol_name = None
         self.name = ''
-        self.root = tk.Tk()
+        self.root = tk_obj
         #self.new_location = tk.Button(master=self.root,text='Enter new path',command=self.load_text_box).pack()
         #self.frame = tk.Frame(self.root)
         #self.frame.pack()
@@ -88,7 +173,8 @@ class GUI():
         self.header = ['Volume Index','Acquisition No.','Phase %','No. of Images']
         
         #self.tree_stud_frame = tk.Frame(self.root, width=150)
-        
+        self.frame_p = tk.Frame(self.root)
+        self.frame_p.pack(side='top',expand=False,fill='both')
         self.frame1 = tk.Frame(self.root) # left frame for study treeview
         self.frame1.pack(side='left',expand=True,fill='both')
         self.frame2 = tk.Frame(self.root) # right frame for series, vol and img
@@ -98,6 +184,8 @@ class GUI():
         ### splitting frame 2 into top half and bottom half
         self.frame2_1 = tk.Frame(self.frame2) 
         self.frame2_1.pack(side='top',fill='both',expand=True)
+        #self.frame2_p = tk.Frame(self.frame2)
+        #self.frame2_p.pack(side='bottom',fill='both',expand=True)
         self.frame2_2 = tk.Frame(self.frame2)
         self.frame2_2.pack(side='bottom',fill='both',expand=True)
         
@@ -113,7 +201,7 @@ class GUI():
         #self.tree_stud.pack(side='left',expand=True,fill='both')
         self.tree_stud.heading('Number',text='Number',anchor=tk.NW)
         self.tree_stud.heading('Folder',text='Folder',anchor=tk.NW)
-
+            
         self.tree_stud.column(str(0),stretch=tk.NO)
         
         #self.tree_stud.pack(side='top',fill='both',expand=True)
@@ -140,7 +228,6 @@ class GUI():
         #self.label.image = itk.PhotoImage(PIL.Image.open('welcome.png'))
 #         #self.label.grid(row=1,column=2)
         self.label.pack(side='bottom',fill='both',expand=True)
-        
         for idx,h in enumerate(self.header):
             self.tree_vol.heading(self.header[idx],text=self.header[idx],anchor=tk.CENTER)
             self.tree_vol.column(str(idx),stretch=tk.YES)
@@ -149,7 +236,7 @@ class GUI():
         self.b2 = tk.Radiobutton(master=self.frame2_2_2,text='Prev',indicatoron=False,variable=self.prev_var,command=self.prev_b)
         self.b1.pack(side='top')
         self.b2.pack(side='top')
-       
+        
         
         ### fills up the Study tree
         self.tree_vol_dic = {}
@@ -158,6 +245,7 @@ class GUI():
             study_idx = i
             self.tree_stud.insert("","end",value=(str(study_idx),str(j)))
             self.tree_stud.bind("<ButtonRelease-1>",self.load_series) ### TODO define self.load_series 
+            #self.tree_stud.bind("<ButtonRelease-1>",partial(load_series2,self))
             self.tree_stud_dic[i] = j
         
         
@@ -174,8 +262,15 @@ class GUI():
         #self.frame1.pack(side='right')
         #self.root.grid_rowconfigure(1, weight=1)
         #self.root.grid_columnconfigure(1, weight=1)
-
+        
+        self.pbar = Progressbar(self.frame_p,mode='indeterminate')
+        self.pbar.grid(row=1,column=1,columnspan=100,sticky=tk.W+tk.E)
         #self.root.mainloop()
+    
+#     def onStart_1(self):
+#         #self.
+#         self.p1 = Process(target = self.load_series_group,args=(global_df,))
+#         return
     
     def saver(self,args):
         # i is the image index
@@ -207,38 +302,92 @@ class GUI():
     
     def load_series(self,event):
         
-       
+        #print("LOAD SERIES")
         if len(self.tree_series.get_children())>0:
 
             self.tree_series.delete(*self.tree_series.get_children())
         item =self.tree_stud.focus()
+        #print(item)
 
 
         #print(self.tree_stud.item(item))
 
         folder = self.tree_stud.item(item)['values'][-1]
         self.study_name = folder
-        if not os.path.isfile(self.cache_folder+'/'+folder+'.pkl'):
-            self.df =  group_scans_df(self.file_path+'/TAVR_ROOT/'+folder)
+        
+        study_path1 = self.file_path+'/TAVR_ROOT/'+folder
+        cache_path = self.cache_folder+'/'+folder+'.pkl'
+        #print(study_path1)
 
-            pickle.dump(self.df,open(self.cache_folder+'/'+folder+'.pkl','wb'))
-
+        #print(cache_path)
+        self.cache_path = self.cache_folder+'/'+folder+'.pkl'
+        #global global_df
+        #print(global_df)
+        
+        if not os.path.isfile(self.cache_path):
+            print('self cache not file')
+            self.p1 = Process(target = load_series_group,args=(global_df,study_path1,cache_path))
+            self.p1.daemon = True
+            self.p1.start()
+            #self.p1.join()
+            print('start')
+            self.pbar.start(20)
+            #self.p1.join()
+            self.frame_p.after(10,self.onGetValue)
         else:
-            self.df = pickle.load(open(self.cache_folder+'/'+folder+'.pkl','rb'))
-        #print(folder)
-        self.group_df_series = return_grouped_s(self.df) 
-        #['Modality','No. of Images','Series No.','Description']
-        groups = self.group_df_series.groups
+            print(self.cache_path)
+            print('accessed else')
+            self.df = pickle.load(open(self.cache_path,'rb'))
+            self.group_df = pickle.load(open(self.cache_path+'.group.pkl','rb'))
+            self.fill_series_tab()
+    
+    def fill_series_tab(self):
+    
+        print(self.group_df)
+        print(type(self.group_df))
+        groups =self.group_df.groups
+        self.group_df_series = self.group_df
+        print(groups)
         for j,i in enumerate(groups):
             button_text = [self.df.loc[groups[i]][j].iloc[0] for j in ['Modality','SeriesNumber','SeriesDescription']]
             button_text.append(len(self.df.loc[groups[i]]))
-            
+
             self.tree_series.insert("","end",values = button_text)
             self.tree_series.bind("<ButtonRelease-1>",self.load_volumes)
             self.tree_series_dic[j] = button_text[:2]
-        ser_num_images = []
-        
-         
+    
+    def onGetValue(self):
+        if not(os.path.isfile(self.cache_path)) and not(os.path.isfile(self.cache_path+'.group.pkl')) :
+            #print(self.cache_path)
+            self.frame_p.after(40,self.onGetValue)
+            return
+        else:
+            #print('made cache path')
+            #self.p1.kill()
+            
+            #print(global_df.get(0))
+            #self.p1.join()
+            #self.p1.terminate()
+            #self.p1.close()
+            try:
+            #self.p1.join()
+                #print(global_df)
+                #self.p1.end()
+                time.sleep(1)
+            
+                print('SELF CACHE PATH ',self.cache_path)
+                f = open(self.cache_path,'rb')
+                self.pbar.stop()  
+                #b = global_df.get()
+                self.df = pickle.load(f)
+                self.group_df = pickle.load(open(self.cache_path+'.group.pkl','rb'))
+                #self.group_df_series = pickle.load(open(self.cache_path+'.group.pkl','rb'))
+                                                   
+                self.fill_series_tab()
+                #self.p1.stop()
+            except Empty:
+                print('quque empty')
+                #self.p1.stop()
     def get_pixels_hu(self,slices):
         slices = slices
         #image = [s.pixel_array.astype(np.int16) for s in slices]
@@ -254,33 +403,6 @@ class GUI():
 
         # Convert to Hounsfield units (HU)
         
-
-        
-        #inp = [(s,s.pixel_array.astype(np.int16),i,s.RescaleIntercept,s.RescaleSlope,s.PixelPaddingValue) for i,s in enumerate(slices)]
-#         with Pool(3) as p:
-#             result = p.map(lsd.hu_conv,inp)
-        
-#         result = sorted(result,key=lambda s:s[0])
-#         result = [i[0] for i in result]
-
-#         image1 = image[:len(image)//4]
-#         image2 = image[len(image)//4:len(image)//2]
-#         image3 = image[len(image)//2:3*len(image)//4]
-#         image4 = image[3*len(image)//4:]
-
-
-#         image1,slice1 = image[:len(image)//4],slices[:len(image)//4]
-#         image2,slice2 = image[len(image)//4:len(image)//2],slices[len(image)//4:len(image)//2]
-#         image3,slice3 = image[len(image)//2:3*len(image)//4],slices[len(image)//2:3*len(image)//4]
-#         image4,slice4 = image[3*len(image)//4:],slices[3*len(image)//4:]
-#         info = [[s.RescaleIntercept,s.RescaleSlope,s.PixelPaddingValue] for s in slices]
-#         info1 = [[s.RescaleIntercept,s.RescaleSlope,s.PixelPaddingValue] for s in slice1]
-#         info2 = [[s.RescaleIntercept,s.RescaleSlope,s.PixelPaddingValue] for s in slice2]
-#         info3 = [[s.RescaleIntercept,s.RescaleSlope,s.PixelPaddingValue] for s in slice3]
-#         info4 = [[s.RescaleIntercept,s.RescaleSlope,s.PixelPaddingValue] for s in slice4]
-        
-#         def cb_hu(im,sl):
-            #nonlocal im,sl
     
         for slice_number in range(len(slices)):
 
@@ -303,79 +425,7 @@ class GUI():
 
             image[slice_number] += np.int16(intercept)
                 #img[padded_pixels] = intercept
-#         def cb(im,sl):
-#             #nonlocal sl
-#             #nonlocal im
-#             for slice_number in range(len(sl)):
 
-#                 intercept = sl[slice_number].RescaleIntercept
-#                 slope = sl[slice_number].RescaleSlope
-#                 padding =  sl[slice_number].PixelPaddingValue
-
-#                 img = im[slice_number]
-#                 img[img==padding] = 0  
-#                 im[slice_number] = img
-#                 # Shift 2 bits based difference 16 -> 14-bit as returned by jpeg2k_bit_depth
-#                 #padded_pixels = np.where( img & (1 << 14))
-#                 #image[slice_number] = np.right_shift( image[slice_number], 2)
-
-#                 if slope != 1:
-#                     im[slice_number] = slope * im[slice_number].astype(np.float64)
-#                     im[slice_number] = im[slice_number].astype(np.int16)
-
-#                 im[slice_number] += np.int16(intercept)
-#                 #img[padded_pixels] = intercept
-                
-#             return im
-#         inp = [(image[i],info[i]) for i in range(len(image))]
-#         #inp1 = [(image1[i],info1[i]) for i in range(len(image1))]
-#         #inp2 = [(image2[i],info2[i]) for i in range(len(image2))]
-#         #inp3 = [(image3[i],info3[i]) for i in range(len(image3))]
-#         #inp4 = [(image4[i],info4[i]) for i in range(len(image4))]
-        
-#         pool = Pool()
-#         res=[]
-#         for inpu in inp:
-#             res.append(pool.apply_async(mp_test.cb,inpu))
-        
-#         for r in res:
-#             r.wait()
-        #print(len(res))
-        #print(res[0].shape)
-        
-        #res1 = pool.map(mp_test.cb,inp1)
-        #res2 = pool.map(mp_test.cb,inp2)
-        #res3 = pool.map(mp_test.cb,inp3)
-        #res4 = pool.map(mp_test.cb,inp4)
-        
-#         image[:len(image)//4]=pool.map(mp_test.cb,(image1,info1))
-#         image[len(image)//4:len(image)//2]=pool.map(mp_test.cb,(image2,info2))
-#         image[len(image)//2:3*len(image)//4]=pool.map(mp_test.cb,(image3,info3))
-#         image[3*len(image)//4:]=pool.map(mp_test.cb,(image4,info4))
-        
-            #return np.array(image, dtype=np.int16)
-        
-#         t1 = threading.Thread(target=cb_hu,args=(image1,slice1))
-#         t2 = threading.Thread(target=cb_hu,args=(image2,slice2))
-#         t3 = threading.Thread(target=cb_hu,args=(image3,slice3))
-#         t4 = threading.Thread(target=cb_hu,args=(image4,slice4))
-        
-#         t1.start()
-#         t2.start()
-#         t3.start()
-#         t4.start()
-        
-#         t1.join()
-#         t4.join()
-#         t3.join()
-#         t2.join()
-        
-#         image[:len(image)//4] = image1
-#         image[len(image)//4:len(image)//2] = image2
-#         image[len(image)//2:3*len(image)//4] = image3
-#         image[3*len(image)//4:] = image4
-        #res.wait()
-        #print(res.get())
         return np.array(image,dtype = np.int16)
     
     
@@ -394,6 +444,9 @@ class GUI():
             if not os.path.isdir(self.save_path+'/'+self.study_name+'/'+self.vol_name + '/images'):
                 #print(self.save_path)
                 #print(self.vol_name)
+                self.vol_name = self.vol_name.replace(' ','')
+                self.study_name = self.study_name.replace(' ','')
+
                 os.makedirs(self.save_path+'/'+self.study_name+'/'+self.vol_name + '/images')
                 #os.makedirs(self.save_path+'/'+self.vol_name + '/Labels')
             ##print(self.vol[0][0])
@@ -406,8 +459,8 @@ class GUI():
                 t = time.time()
                 images = self.get_pixels_hu(slices)
                 print('get hu ',time.time()-t)
-                print(images.max())
-                print(-1 + 2**16 )
+#                 print(images.max())
+#                 print(-1 + 2**16 )
                 images = images + 1024
                 
                 t = time.time()
@@ -439,13 +492,15 @@ class GUI():
 #                     nonlocal decomp_img
                 for i in range(0,len(decomp_img)):
                     arr = decomp_img[i,:,:]
-                    if arr.shape[0]>512:
-                        arr = scipy.misc.imresize(arr,(512,512))
+                    arr[arr>4096] = 0
+#                     if arr.shape[0]>512:
+#                         arr = scipy.misc.imresize(arr,(512,512))
     #                 print(arr.min())
     #                 print(arr.max())
                     #np.save('image',arr)
+                    #plt.imshow(arr),plt.show()
                     array_buffer = arr.tobytes()
-                    img = Image.new("I", arr.T.shape)
+                    img = Image.new("I", (arr.shape[1],arr.shape[0]))
                     img.frombytes(array_buffer, 'raw', "I;16")
                     img.save(self.save_path+'/'+self.study_name+'/'+str(vol_name)+'/images/image - '+str(i)+'.png')
                 print('saving images ',time.time()-t)
@@ -459,6 +514,7 @@ class GUI():
                     
                 print('saving xml',time.time()-t)
 
+            run_string = './AT/test.exe --path '+self.save_path+'/'+self.study_name+'/'+str(self.vol_name)
             
             subprocess.call('./AT/test.exe --path '+self.save_path+'/'+self.study_name+'/'+str(self.vol_name))
         self.v2.set(5)
@@ -515,7 +571,7 @@ class GUI():
         
         acq_num,ser_num,ph_num,manu_info,k = self.tree_vol_dic[index]
         
-        self.vol = return_volume(self.new_df,self.new_group_df,acq_num,ser_num,ph_num,manu_info)[k]
+        self.vol = return_volume(self.new_df,self.new_group_df,acq_num,ser_num,ph_num,manu_info)[k][::-1]
         
         self.vol_name=self.name + '_Volume_'+str(index)
         #print(self.vol_name)
@@ -567,8 +623,10 @@ class GUI():
 
             self.label.image=photo
 
-        #self.label.pack()
+if __name__ == "__main__":
+    gui_obj = tk.Tk()
+    a = GUI(gui_obj,'../TAVR_MAIN')
+    gui_obj.mainloop()        #self.label.pack()
 
-
-if __name__ =="__main__":
-    gui = GUI(file_path = '/data/gabriel/TAVR/TAVR_Sample_Study')
+# if __name__ =="__main__":
+#     gui = GUI(file_path = '../TAVR_MAIN')
