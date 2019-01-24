@@ -1,4 +1,5 @@
 import tkinter as tk
+#import Tkinter as tk
 import numpy as np
 import os
 import pydicom
@@ -20,6 +21,7 @@ import multiprocessing
 from multiprocessing import Pool
 import scipy.ndimage
 import tkinter.ttk as ttk
+#import ttk
 import subprocess
 #import png
 from PIL import Image
@@ -33,8 +35,11 @@ import matplotlib
 matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt 
 import warnings
+#from tkinter import Entry,StringVar
 from tkinter import Entry,StringVar
-
+from scipy.sparse.csgraph import _validation
+from scipy.special import _ufuncs_cxx
+from matplotlib.backends import backend_tkagg
 
 
 def save_imgs(image_save_path,decomp_img):
@@ -53,7 +58,6 @@ def save_imgs(image_save_path,decomp_img):
         img = Image.new("I", (arr.shape[1],arr.shape[0]))
         img.frombytes(array_buffer, 'raw', "I;16")
         img.save(image_save_path + '/image - '+str(i)+'.png')
-    
     
 
 def group_scans_df(path,save_cache_path,save=False):
@@ -435,7 +439,7 @@ class GUI():
                 #self.p1.end()
                 time.sleep(1)
             
-                print('SELF CACHE PATH ',self.cache_path)
+                #print('SELF CACHE PATH ',self.cache_path)
                 f = open(self.cache_path,'rb')
                 self.pbar.stop()  
                 #b = global_df.get()
@@ -445,7 +449,7 @@ class GUI():
                                                    
                 self.fill_series_tab()
                 #self.p1.stop()
-            except Empty:
+            except :#Empty:
                 print('quque empty')
                 #self.p1.stop()
     def get_pixels_hu(self,slices):
@@ -603,13 +607,14 @@ class GUI():
 #                     img.frombytes(array_buffer, 'raw', "I;16")
 #                     img.save(self.save_path+'/'+self.study_name+'/'+str(vol_name)+'/images/image - '+str(i)+'.png')
                 
-                
-                self.p2 = Process(target=save_imgs,args=(self.save_path_img,decomp_img))
-                self.p2.start()
-                self.pbar.start()
-                self.frame_p.after(10,self.onSaveImg)
+                save_imgs(self.save_path_img,decomp_img)
+                #self.p2 = Process(target=save_imgs,args=(self.save_path_img,decomp_img))
+                #self.p2.start()
+                #self.pbar.start()
+                #self.frame_p.after(10,self.onSaveImg)
                 with open(self.save_path+'/'+self.study_name+'/'+str(self.vol_name)+'/volume.xml','w') as f:
                     f.write('<volume>\n'+'<Spacing><x>'+str(spacing[2])+'</x><y>'+str(spacing[1])+'</y><z>'+str(spacing[0])+'</z></Spacing>'+'\n<Size><x>'+str(num_z)+'</x><y>'+str(num_cols)+'</y><z>'+str(num_rows)+'</z></Size>'+'\n</volume>')
+                self.call_yuval_tool()
             else:
                 self.call_yuval_tool()
                 #print('saving images ',time.time()-t)
@@ -704,7 +709,10 @@ class GUI():
         
         import matplotlib
         matplotlib.use('TKAgg')
+        
         import matplotlib.pyplot as plt
+        #print(plt.rcParams["figure.figsize"])
+        plt.rcParams["figure.figsize"] = [2.5,2.5]
         #self.w.destroy()
         from PIL import Image
         if self.vol_name is not None:
@@ -715,24 +723,32 @@ class GUI():
                 self.counter=0
 
             np_img = decomp(self.vol[self.counter][0])
+#             print(type(np_img))
+#             print(np_img.dtype)
+#             print(np_img.shape)
             #pickle.dump(np_img,open('np_img.pkl','wb'))
             #print(np_img)
             #import scipy.misc
-            import imageio
-            
-            np_img_pil = Image.fromarray(np_img)
-            
-            
+            #import imageio
+            if '8' not in str(np_img.dtype):
+                np_img_pil = Image.fromarray(np_img.astype(np.uint32))
+            else:
+                if len(np_img.shape)==3:
+                    np_img_pil = Image.fromarray(np_img[:,:,0])
+                else:
+                    np_img_pil = Image.fromarray(np_img)
+
             
             #np_img = Image.frombytes("I;16",(tags.Columns,tags.Rows),np_img,'raw')
             if np_img.shape[0]>512 or np_img.shape[1]>512:
                 #np_img = scipy.misc.imresize(np_img,(512,512))
-                np_img_pil = np_img_pil.resize((512,512))
-                np_img = np.array(np_img_pil).astype(np.int16)
+                np_img_pil = np_img_pil.resize((256,256))
+                np_img = np.array(np_img_pil).astype(np.uint32)
             #np_img.save('temp1.png')
 #             print(np_img.max())
 #             print(np_img.dtype)
-            imageio.imwrite('temp1.png',np_img)
+            Image.fromarray(np_img.astype(np.uint32)).save('temp1.png')
+            #imageio.imwrite('temp1.png',np_img)
             
             
             #scipy.io.imsave(np_img,'temp1.png')
@@ -743,7 +759,8 @@ class GUI():
             
             
             a = Image.open('temp1.png')
-            b = np.array(a)
+            
+            b = np.array(a.resize((256,256)))
             # bb = b
 
             # c = plt.Figure(frameon=False)
@@ -763,6 +780,8 @@ class GUI():
             ncols,nrows = fig.canvas.get_width_height()
 
             b2 = Image.fromarray(np.fromstring(buf,dtype=np.uint8).reshape(nrows,ncols,4))
+            #print(b2.size)
+            
             photo= itk.PhotoImage(b2)
             self.next_var.set(0)
             
@@ -780,7 +799,9 @@ class GUI():
         import matplotlib
         matplotlib.use('TKAgg')
         import matplotlib.pyplot as plt
-
+        plt.rcParams["figure.figsize"] = [2.5,2.5]
+        
+        #plt.rcParams["figure.figsize"] = [256,256]
         if self.vol_name is not None:
             self.prev_var.set(1)
             self.counter+=1
@@ -789,28 +810,30 @@ class GUI():
             #pickle.dump(np_img,open('np_img.pkl','wb'))
             #print(np_img)
             #import scipy.misc
-            import imageio
+            #import imageio
             
-            np_img_pil = Image.fromarray(np_img)
+            np_img_pil = Image.fromarray(np_img.astype(np.uint32))
             
             
             
             #np_img = Image.frombytes("I;16",(tags.Columns,tags.Rows),np_img,'raw')
             if np_img.shape[0]>512 or np_img.shape[1]>512:
                 #np_img = scipy.misc.imresize(np_img,(512,512))
-                np_img_pil = np_img_pil.resize((512,512))
-                np_img = np.array(np_img_pil).astype(np.int16)
+                np_img_pil = np_img_pil.resize((256,256))
+                np_img = np.array(np_img_pil).astype(np.int32)
             #np_img.save('temp1.png')
 #             print(np_img.max())
 #             print(np_img.dtype)
-            imageio.imwrite('temp1.png',np_img)
+
+            Image.fromarray(np_img.astype(np.uint32)).save('temp1.png')
+            #imageio.imwrite('temp1.png',np_img)
             
             #bb = Image.fromarray(np_img,mode='I;16')
             #bb.save('temp1.png')
             #scipy.misc.imsave('temp1.png',np_img)
             
             a = Image.open('temp1.png')
-            b = np.array(a)
+            b = np.array(a.resize((256,256)))
             # bb = b
 
             # c = plt.Figure(frameon=False)
@@ -826,7 +849,7 @@ class GUI():
             buf = fig.canvas.print_to_buffer()[0]
 
             ncols,nrows = fig.canvas.get_width_height()
-
+                
             b2 = Image.fromarray(np.fromstring(buf,dtype=np.uint8).reshape(nrows,ncols,4))
             photo= itk.PhotoImage(b2)
             self.next_var.set(0)
