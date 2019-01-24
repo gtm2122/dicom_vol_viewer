@@ -59,7 +59,6 @@ def save_imgs(image_save_path,decomp_img):
         img.frombytes(array_buffer, 'raw', "I;16")
         img.save(image_save_path + '/image - '+str(i)+'.png')
     
-    
 
 def group_scans_df(path,save_cache_path,save=False):
 
