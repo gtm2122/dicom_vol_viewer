@@ -70,7 +70,7 @@ def read_phase(slice):
 
 def is_dicom(path):
     try:
-        pydicom.dcmread(path,stop_before_pixels=True,force=True)
+        pydicom.dcmread(path).pixel_array
         return True
     except:
         return False
@@ -80,7 +80,7 @@ def load_all_dcm(path):
     for i,j,k in os.walk(path):
         
         if isinstance(k,list) and len(k)>0 and is_dicom(i+'/'+k[0]) and 'DICOMDIR' not in k[0]:
-            all_dcms+=[(pydicom.dcmread(i+'/'+p,stop_before_pixels=True,force=True),i+'/'+p) for p in k if 'DICOMDIR' not in p and is_dicom(i+'/'+p)]
+            all_dcms+=[(pydicom.dcmread(i+'/'+p,stop_before_pixels=True),i+'/'+p) for p in k if 'DICOMDIR' not in p and is_dicom(i+'/'+p)]
     return all_dcms
     
 def group_scans_df(global_var,path,save_cache_path,save=False):
