@@ -57,7 +57,7 @@ def save_imgs(image_save_path,decomp_img):
         array_buffer = arr.tobytes()
         img = Image.new("I", (arr.shape[1],arr.shape[0]))
         img.frombytes(array_buffer, 'raw', "I;16")
-        img.save(image_save_path + '/image - '+str(i)+'.png')
+        img.save(image_save_path + '/img - '+str(i)+'.png')
     
 
 def group_scans_df(path,save_cache_path,save=False):
@@ -352,7 +352,7 @@ class GUI():
         real_resize_factor = new_shape / image.shape
         new_spacing = spacing / real_resize_factor
         #print(new_real_shape)
-        image = scipy.ndimage.interpolation.zoom(image, real_resize_factor, order = 2, mode='nearest')
+        image = scipy.ndimage.interpolation.zoom(image, real_resize_factor, order = 1, mode='nearest')
         #print(new_spacing)
         
         
@@ -533,7 +533,8 @@ class GUI():
             
                 t =time.time()
                 volume_meta = [decomp(v[0],return_dcm=True) for v in self.vol]
-                
+                import pickle
+                pickle.dump(volume_meta,open('volume_meta.pkl','wb'))
                 print('len of vol = ',len(self.vol))
                 
                 print('loading all dicoms - ',time.time()-t)
@@ -731,7 +732,7 @@ class GUI():
             #import scipy.misc
             #import imageio
             if '8' not in str(np_img.dtype):
-                np_img_pil = Image.fromarray(np_img.astype(np.uint32))
+                np_img_pil = Image.fromarray(np_img.astype(np.uint16))
             else:
                 if len(np_img.shape)==3:
                     np_img_pil = Image.fromarray(np_img[:,:,0])
@@ -747,7 +748,13 @@ class GUI():
             #np_img.save('temp1.png')
 #             print(np_img.max())
 #             print(np_img.dtype)
-            Image.fromarray(np_img.astype(np.uint32)).save('temp1.png')
+            
+            if '8' not in str(np_img.dtype):
+
+                Image.fromarray(np_img.astype(np.uint32)).save('temp1.png')
+                
+            else:
+                Image.fromarray(np_img).save('temp1.png')
             #imageio.imwrite('temp1.png',np_img)
             
             
@@ -805,33 +812,32 @@ class GUI():
         if self.vol_name is not None:
             self.prev_var.set(1)
             self.counter+=1
-            
             np_img = decomp(self.vol[self.counter][0])
-            #pickle.dump(np_img,open('np_img.pkl','wb'))
-            #print(np_img)
-            #import scipy.misc
             #import imageio
-            
-            np_img_pil = Image.fromarray(np_img.astype(np.uint32))
-            
-            
+            if '8' not in str(np_img.dtype):
+                np_img_pil = Image.fromarray(np_img.astype(np.uint16))
+            else:
+                if len(np_img.shape)==3:
+                    np_img_pil = Image.fromarray(np_img[:,:,0])
+                else:
+                    np_img_pil = Image.fromarray(np_img)
+
             
             #np_img = Image.frombytes("I;16",(tags.Columns,tags.Rows),np_img,'raw')
             if np_img.shape[0]>512 or np_img.shape[1]>512:
                 #np_img = scipy.misc.imresize(np_img,(512,512))
                 np_img_pil = np_img_pil.resize((256,256))
-                np_img = np.array(np_img_pil).astype(np.int32)
+                np_img = np.array(np_img_pil).astype(np.uint32)
             #np_img.save('temp1.png')
 #             print(np_img.max())
 #             print(np_img.dtype)
+            
+            if '8' not in str(np_img.dtype):
 
-            Image.fromarray(np_img.astype(np.uint32)).save('temp1.png')
-            #imageio.imwrite('temp1.png',np_img)
-            
-            #bb = Image.fromarray(np_img,mode='I;16')
-            #bb.save('temp1.png')
-            #scipy.misc.imsave('temp1.png',np_img)
-            
+                Image.fromarray(np_img.astype(np.uint32)).save('temp1.png')
+                
+            else:
+                Image.fromarray(np_img).save('temp1.png')
             a = Image.open('temp1.png')
             b = np.array(a.resize((256,256)))
             # bb = b
