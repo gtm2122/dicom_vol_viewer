@@ -15,7 +15,7 @@ from decomp_dcm import *
 import load_scan_dir
 import time
 import time
-import mp_test
+#import mp_test
 import threading
 import multiprocessing
 from multiprocessing import Pool
@@ -337,7 +337,7 @@ class GUI():
         array_buffer = arr.tobytes()
         img = Image.new("I", arr.T.shape)
         img.frombytes(array_buffer, 'raw', "I;16")
-        img.save(self.save_path+'/'+str(self.vol_name)+'/images/image - '+str(i)+'.png')
+        img.save(self.save_path+'/'+str(self.vol_name)+'/images/img - '+str(i)+'.png')
 
     
     def resample_check(self):
@@ -349,11 +349,11 @@ class GUI():
         
         resize_factor = spacing / new_spacing
         new_real_shape = image.shape * resize_factor
-        new_shape = np.round(new_real_shape)
+        new_shape = new_real_shape
         real_resize_factor = new_shape / image.shape
         new_spacing = spacing / real_resize_factor
         #print(new_real_shape)
-        image = scipy.ndimage.interpolation.zoom(image, real_resize_factor, order = 1, mode='nearest')
+        image = scipy.ndimage.interpolation.zoom(image, real_resize_factor, order = 2, mode='nearest')
         #print(new_spacing)
         
         

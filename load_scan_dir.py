@@ -160,7 +160,7 @@ def return_volume(orig_df , g,acq_num,ser_num,phase_num,man_name="'GE MEDICAL SY
     all_id = []
     #if(name[0]!=-1  ):
 
-    inst_g = group.sort_values(by='InstanceNumber')
+    inst_g = group.sort_values(by='ImagePositionPatient')
     #print(len(inst_g))
     
     if (len(inst_g)==1):
