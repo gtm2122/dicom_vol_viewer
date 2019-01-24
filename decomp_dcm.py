@@ -1,7 +1,7 @@
 import gdcm
 import sys
 import pydicom
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import os
 
 #if __name__ == "__main__":
@@ -13,7 +13,7 @@ import os
 #    temp_files
 import shutil
 
-def decomp(file1,file2='temp_file_22.dcm'):
+def decomp(file1,file2='temp_file_22.dcm',return_dcm=False):
     #file1 = '/data/gabriel/TAVR/TAVR_Sample_Study/IM-0003-1528.dcm'#sys.argv[1] # input filename
 
     #file2 = file2#sys.argv[2] # output filename
@@ -37,7 +37,11 @@ def decomp(file1,file2='temp_file_22.dcm'):
     writer.SetImage( change.GetOutput() )
     if not writer.Write():
         sys.exit(1)
-    return pydicom.dcmread(file2,force=True).pixel_array
+    
+    if return_dcm:
+        return pydicom.dcmread(file2,force=True)
+    else:
+        return pydicom.dcmread(file2,force=True).pixel_array
 
 if __name__=="__main__":
     decomp(file1 = '/data/gabriel/TAVR/TAVR_Sample_Study/IM-0003-1528.dcm',file2='temp_file_22.dcm')
