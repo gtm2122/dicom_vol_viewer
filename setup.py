@@ -1,18 +1,22 @@
 from cx_Freeze import setup, Executable
 import os.path
-#import matplotlib
+import matplotlib
 import scipy
 import radiob
 if __name__=="__main__":
     scipy_p = os.path.dirname(scipy.__file__)
-    additional_mods = ['numpy.core._methods','numpy.matlib','pandas.core'] 
+    additional_mods = ['numpy.core._methods','numpy.matlib',
+                       'pandas.core','matplotlib.backends.backend_tkagg',"tkinter.filedialog"
+                      ] 
     PYTHON_INSTALL_DIR = os.path.dirname(os.path.dirname(os.__file__))
-    pic_dir = './welcome.png'
+    #pic_dir = './welcome.png'
     anno_p = './AT2'
 
     build_exe_options = {"includes":  additional_mods,
-                         "include_files":[scipy_p,anno_p,pic_dir],
+                         "include_files":[anno_p,matplotlib.get_data_path(),scipy_p],
                          "excludes":['scipy.spatial.cKDTree'],
+                         "include_msvcr": True,
+                         #"packages":["scipy"]
                         }
     dep = [i for i in os.listdir(os.path.join(PYTHON_INSTALL_DIR,'Library','bin')) if 'mkl' in i]
     dep.append('libiomp5md.dll')
@@ -32,7 +36,7 @@ if __name__=="__main__":
           options={
               'build_exe':build_exe_options
               },
-          executables=[Executable("radiob.py")]
+          executables=[Executable("radiob.py",base='Win32GUI',compress=False)]
          )
 
     import os
