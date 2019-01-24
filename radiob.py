@@ -690,7 +690,7 @@ class GUI():
 
             acq_num,ser_num,ph_num,manu_info,k = self.tree_vol_dic[index]
 
-            self.vol = return_volume(self.new_df,self.new_group_df,acq_num,ser_num,ph_num,manu_info)[k][::-1]
+            self.vol = return_volume(self.new_df,self.new_group_df,acq_num,ser_num,ph_num,manu_info)[k]#[::-1]
             #self.vol = self.vol[::-1]
             self.vol_name=self.name + '_Volume_'+str(index)
             #print(self.vol_name)
